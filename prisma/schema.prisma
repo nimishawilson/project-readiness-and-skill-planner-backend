@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  MANAGER
+  EMPLOYEE
+}
+
+// Declared lowest -> highest. Prisma cannot order-compare enums, so services
+// compare levels through a rank map (BEGINNER=1, INTERMEDIATE=2, EXPERT=3).
+enum ProficiencyLevel {
+  BEGINNER
+  INTERMEDIATE
+  EXPERT
+}
+
+enum ProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+// Independent of ProgressStatus: set by the manager after completion.
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+}
+
+model Department {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  employees Employee[]
+}
+
+model Employee {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(EMPLOYEE)
+  createdAt    DateTime @default(now())
+
+  departmentId Int?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  // Team model: a manager's team = employees whose managerId is theirs.
+  managerId Int?
+  manager   Employee?  @relation("Team", fields: [managerId], references: [id], onDelete: SetNull)
+  reports   Employee[] @relation("Team")
+
+  skills             EmployeeSkill[]
+  learningGoals      LearningGoal[]      @relation("GoalOwner")
+  approvedGoals      LearningGoal[]      @relation("GoalApprover")
+  projectAssignments ProjectAssignment[]
+
+  @@index([managerId])
+  @@index([departmentId])
+}
+
+model Skill {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  employees    EmployeeSkill[]
+  requirements ProjectRequirement[]
+}
+
+model EmployeeSkill {
+  employeeId Int
+  skillId    Int
+  level      ProficiencyLevel
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  // Restrict: deleting a skill that is mapped to an employee must fail (409).
+  skill    Skill    @relation(fields: [skillId], references: [id], onDelete: Restrict)
+
+  @@id([employeeId, skillId])
+  @@index([skillId])
+}
+
+// Rule enforced in the service layer (in a transaction): max 3 goals per
+// employee per year, including when mapping a goal to a new year.
+model LearningGoal {
+  id             Int            @id @default(autoincrement())
+  title          String
+  description    String?
+  year           Int
+  progressStatus ProgressStatus @default(NOT_STARTED)
+  approvalStatus ApprovalStatus @default(PENDING)
+  approvedAt     DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  employeeId Int
+  employee   Employee @relation("GoalOwner", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  approvedById Int?
+  approvedBy   Employee? @relation("GoalApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([employeeId, year])
+  @@index([progressStatus, approvalStatus])
+}
+
+model Project {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  years        ProjectYear[]
+  requirements ProjectRequirement[]
+}
+
+// The years a project is current in. Assignments hang off (project, year),
+// so mapping to a new year copies assignment rows.
+model ProjectYear {
+  projectId Int
+  year      Int
+
+  project     Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignments ProjectAssignment[]
+
+  @@id([projectId, year])
+}
+
+model ProjectRequirement {
+  id             Int              @id @default(autoincrement())
+  projectId      Int
+  skillId        Int
+  minLevel       ProficiencyLevel
+  peopleRequired Int
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  skill   Skill   @relation(fields: [skillId], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, skillId, minLevel])
+  @@index([skillId])
+}
+
+model ProjectAssignment {
+  projectId  Int
+  year       Int
+  employeeId Int
+
+  // Composite FK: an assignment can only exist in a year the project is mapped to.
+  projectYear ProjectYear @relation(fields: [projectId, year], references: [projectId, year], onDelete: Cascade)
+  employee    Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, year, employeeId])
+  @@index([employeeId, year])
+}
