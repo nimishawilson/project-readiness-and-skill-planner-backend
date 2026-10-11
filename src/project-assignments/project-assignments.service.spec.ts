@@ -240,4 +240,63 @@ describe('ProjectAssignmentsService', () => {
       expect(projectAssignment.findMany).not.toHaveBeenCalled();
     });
   });
+  describe('employee’s own projects (listMyCurrent / listMyPast)', () => {
+    const row = (id: number, name: string, y: number) => ({
+      year: y,
+      projectYear: { project: { id, name, description: `${name} d` } },
+    });
+    const byName = [
+      { projectYear: { project: { name: 'asc' } } },
+      { projectId: 'asc' },
+    ];
+
+    it('current: this year’s assignments, ordered by project name', async () => {
+      projectAssignment.findMany.mockResolvedValue([row(1, 'Alpha', year)]);
+      await expect(service.listMyCurrent(5)).resolves.toEqual([
+        { id: 1, name: 'Alpha', description: 'Alpha d', year },
+      ]);
+      const arg = projectAssignment.findMany.mock.calls[0][0];
+      expect(arg.where).toEqual({ employeeId: 5, year });
+      expect(arg.orderBy).toEqual(byName);
+    });
+
+    it('past: earlier years only, newest year first', async () => {
+      projectAssignment.findMany.mockResolvedValue([
+        row(2, 'Beta', year - 1),
+        row(1, 'Alpha', year - 2),
+      ]);
+      await expect(service.listMyPast(5)).resolves.toEqual([
+        { id: 2, name: 'Beta', description: 'Beta d', year: year - 1 },
+        { id: 1, name: 'Alpha', description: 'Alpha d', year: year - 2 },
+      ]);
+      const arg = projectAssignment.findMany.mock.calls[0][0];
+      expect(arg.where).toEqual({ employeeId: 5, year: { lt: year } });
+      expect(arg.orderBy).toEqual([{ year: 'desc' }, ...byName]);
+    });
+
+    it('returns an empty list when there are no rows', async () => {
+      projectAssignment.findMany.mockResolvedValue([]);
+      await expect(service.listMyCurrent(5)).resolves.toEqual([]);
+      await expect(service.listMyPast(5)).resolves.toEqual([]);
+    });
+
+    it('applies no team check or ownership filter', async () => {
+      projectAssignment.findMany.mockResolvedValue([]);
+      await service.listMyCurrent(5);
+      await service.listMyPast(5);
+      expect(teamAccess.assertTeamMember).not.toHaveBeenCalled();
+      for (const [arg] of projectAssignment.findMany.mock.calls) {
+        expect(JSON.stringify(arg.where)).not.toContain('createdById');
+      }
+    });
+
+    it('never exposes future years (past uses lt, current uses equality)', async () => {
+      projectAssignment.findMany.mockResolvedValue([]);
+      await service.listMyCurrent(5);
+      await service.listMyPast(5);
+      const calls = projectAssignment.findMany.mock.calls;
+      expect(calls[0][0].where.year).toBe(year);
+      expect(calls[1][0].where.year).toEqual({ lt: year });
+    });
+  });
 });

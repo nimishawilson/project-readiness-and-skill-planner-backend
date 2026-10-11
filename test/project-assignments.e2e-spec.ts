@@ -3,6 +3,7 @@ import * as bcrypt from 'bcrypt';
 import request from 'supertest';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTestApp } from './utils/create-test-app';
+import { uniqueTag } from './utils/unique-tag';
 
 interface AssignedBody {
   employeeId: number;
@@ -18,7 +19,7 @@ describe('Project assignments (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   const http = () => request(app.getHttpServer());
-  const tag = `e2e${Date.now()}`;
+  const tag = uniqueTag();
   const year = new Date().getFullYear();
 
   let mgrId: number;

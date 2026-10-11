@@ -15,6 +15,11 @@ import { CreatedAssignmentDto } from './dto/created-assignment.dto';
 import { EmployeeProjectDto } from './dto/employee-project.dto';
 import { AssignedEmployeeDto } from '../projects/dto/project-view.dto';
 
+const byProjectName: Prisma.ProjectAssignmentOrderByWithRelationInput[] = [
+  { projectYear: { project: { name: 'asc' } } },
+  { projectId: 'asc' },
+];
+
 @Injectable()
 export class ProjectAssignmentsService {
   constructor(
@@ -116,12 +121,45 @@ export class ProjectAssignmentsService {
     year?: number,
   ): Promise<EmployeeProjectDto[]> {
     await this.teamAccess.assertTeamMember(managerId, employeeId);
-    const rows = await this.prisma.projectAssignment.findMany({
-      where: {
+    return this.findEmployeeProjects(
+      {
         employeeId,
         year: year ?? currentYear(),
         projectYear: { project: { createdById: managerId } },
       },
+      byProjectName,
+    );
+  }
+
+  /**
+   * An employee's active projects (assigned for the current year). Basic
+   * info only, and no ownership filter: employees see every project they
+   * are assigned to.
+   */
+  listMyCurrent(employeeId: number): Promise<EmployeeProjectDto[]> {
+    return this.findEmployeeProjects(
+      { employeeId, year: currentYear() },
+      byProjectName,
+    );
+  }
+
+  /**
+   * An employee's past projects: one row per earlier year they were
+   * assigned, newest year first. Future years are intentionally not shown.
+   */
+  listMyPast(employeeId: number): Promise<EmployeeProjectDto[]> {
+    return this.findEmployeeProjects(
+      { employeeId, year: { lt: currentYear() } },
+      [{ year: 'desc' }, ...byProjectName],
+    );
+  }
+
+  private async findEmployeeProjects(
+    where: Prisma.ProjectAssignmentWhereInput,
+    orderBy: Prisma.ProjectAssignmentOrderByWithRelationInput[],
+  ): Promise<EmployeeProjectDto[]> {
+    const rows = await this.prisma.projectAssignment.findMany({
+      where,
       select: {
         year: true,
         projectYear: {
@@ -130,10 +168,7 @@ export class ProjectAssignmentsService {
           },
         },
       },
-      orderBy: [
-        { projectYear: { project: { name: 'asc' } } },
-        { projectId: 'asc' },
-      ],
+      orderBy,
     });
     return rows.map((r) => ({ ...r.projectYear.project, year: r.year }));
   }

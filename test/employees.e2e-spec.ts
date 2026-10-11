@@ -3,12 +3,13 @@ import * as bcrypt from 'bcrypt';
 import request from 'supertest';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTestApp } from './utils/create-test-app';
+import { uniqueTag } from './utils/unique-tag';
 
 describe('Departments & Employees (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   const http = () => request(app.getHttpServer());
-  const tag = `e2e-${Date.now()}`;
+  const tag = uniqueTag('e2e-');
   const emailOf = (n: string) => `${tag}-${n}@example.com`;
 
   let managerToken: string;

@@ -28,6 +28,8 @@ import { LearningGoalView } from '../common/mappers/goal.mapper';
 import { GoalsYearQueryDto } from '../learning-goals/dto/goals-year-query.dto';
 import { UpdateMyGoalProgressDto } from '../learning-goals/dto/update-my-goal-progress.dto';
 import { LearningGoalsService } from '../learning-goals/learning-goals.service';
+import { EmployeeProjectDto } from '../project-assignments/dto/employee-project.dto';
+import { ProjectAssignmentsService } from '../project-assignments/project-assignments.service';
 import { MyProfileDto } from './dto/my-profile.dto';
 import { EmployeesService } from './employees.service';
 
@@ -42,6 +44,7 @@ export class MeController {
     private readonly employees: EmployeesService,
     private readonly employeeSkills: EmployeeSkillsService,
     private readonly goals: LearningGoalsService,
+    private readonly projectAssignments: ProjectAssignmentsService,
   ) {}
 
   @Get('profile')
@@ -86,5 +89,25 @@ export class MeController {
     @Body() dto: UpdateMyGoalProgressDto,
   ): Promise<LearningGoalView> {
     return this.goals.advanceMyProgress(user.id, id, dto.progressStatus);
+  }
+
+  @Get('projects/current')
+  @ApiOperation({
+    summary: 'Own active projects (assigned for the current year)',
+  })
+  @ApiOkResponse({ type: [EmployeeProjectDto] })
+  currentProjects(
+    @CurrentUser() user: AuthUser,
+  ): Promise<EmployeeProjectDto[]> {
+    return this.projectAssignments.listMyCurrent(user.id);
+  }
+
+  @Get('projects/past')
+  @ApiOperation({
+    summary: 'Own past projects, one row per earlier year, newest first',
+  })
+  @ApiOkResponse({ type: [EmployeeProjectDto] })
+  pastProjects(@CurrentUser() user: AuthUser): Promise<EmployeeProjectDto[]> {
+    return this.projectAssignments.listMyPast(user.id);
   }
 }
