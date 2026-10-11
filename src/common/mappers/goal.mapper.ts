@@ -1,15 +1,6 @@
-import { ApprovalStatus, ProgressStatus } from '../../generated/prisma/enums';
+import { LearningGoalView } from './goal.entity';
 
-export class LearningGoalView {
-  id: number;
-  employeeId: number;
-  title: string;
-  description: string | null;
-  year: number;
-  progressStatus: ProgressStatus;
-  approvalStatus: ApprovalStatus;
-  createdAt: Date;
-}
+export { LearningGoalView };
 
 export const learningGoalSelect = {
   id: true,
