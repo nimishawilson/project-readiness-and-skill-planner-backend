@@ -88,6 +88,7 @@ async function main() {
     await prisma.project.create({
       data: {
         name: 'Portal Rebuild',
+        createdById: manager.id,
         description: 'Seed project: Angular x2 beginner, Java x1 intermediate',
         years: {
           create: {

@@ -155,9 +155,13 @@ describe('Skill catalog (e2e)', () => {
 
   it('refuses to delete a skill used in a project requirement', async () => {
     const { id } = (await create(`${tag}-required`).expect(201)).body;
+    const owner = await prisma.employee.findUniqueOrThrow({
+      where: { email: 'manager@example.com' },
+    });
     await prisma.project.create({
       data: {
         name: `${tag}-project`,
+        createdById: owner.id,
         requirements: {
           create: { skillId: id, minLevel: 'BEGINNER', peopleRequired: 1 },
         },

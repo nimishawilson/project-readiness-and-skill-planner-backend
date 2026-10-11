@@ -5,6 +5,7 @@ import { DepartmentsModule } from './departments/departments.module';
 import { EmployeeSkillsModule } from './employee-skills/employee-skills.module';
 import { EmployeesModule } from './employees/employees.module';
 import { LearningGoalsModule } from './learning-goals/learning-goals.module';
+import { ProjectsModule } from './projects/projects.module';
 import { SkillsModule } from './skills/skills.module';
 import { validateEnv } from './config/env.validation';
 import { AppController } from './app.controller';
@@ -20,6 +21,7 @@ import { PrismaModule } from './prisma/prisma.module';
     EmployeesModule,
     EmployeeSkillsModule,
     LearningGoalsModule,
+    ProjectsModule,
     SkillsModule,
   ],
   controllers: [AppController],

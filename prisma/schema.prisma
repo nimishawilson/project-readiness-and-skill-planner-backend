@@ -58,6 +58,7 @@ model Employee {
   learningGoals      LearningGoal[]      @relation("GoalOwner")
   approvedGoals      LearningGoal[]      @relation("GoalApprover")
   projectAssignments ProjectAssignment[]
+  ownedProjects      Project[]           @relation("ProjectOwner")
 
   @@index([managerId])
   @@index([departmentId])
@@ -113,8 +114,14 @@ model Project {
   description String?
   createdAt   DateTime @default(now())
 
+  // Projects are private to the manager who created them.
+  createdById Int
+  createdBy   Employee @relation("ProjectOwner", fields: [createdById], references: [id], onDelete: Restrict)
+
   years        ProjectYear[]
   requirements ProjectRequirement[]
+
+  @@index([createdById])
 }
 
 // The years a project is current in. Assignments hang off (project, year),
