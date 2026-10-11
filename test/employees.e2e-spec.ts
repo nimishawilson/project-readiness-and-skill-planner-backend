@@ -209,6 +209,35 @@ describe('Departments & Employees (e2e)', () => {
         .expect(404);
     });
 
+    it('trims and collapses whitespace in the name and enforces 1–100 characters', async () => {
+      const create = (name: string, key: string) =>
+        http()
+          .post('/api/employees')
+          .set(auth(managerToken))
+          .send({ ...body(), email: emailOf(key), name });
+
+      const padded = await create('  Mary   Ann \t Smith  ', 'name1').expect(
+        201,
+      );
+      expect(padded.body.name).toBe('Mary Ann Smith');
+
+      await create('   ', 'name2').expect(400);
+      await create('a'.repeat(101), 'name3').expect(400);
+      expect(
+        await prisma.employee.count({
+          where: { email: { in: [emailOf('name2'), emailOf('name3')] } },
+        }),
+      ).toBe(0);
+
+      const max = await create('a'.repeat(100), 'name4').expect(201);
+      expect(max.body.name).toHaveLength(100);
+      // Surrounding whitespace doesn't count toward the limit.
+      const spaced = await create(`  ${'b'.repeat(100)}  `, 'name5').expect(
+        201,
+      );
+      expect(spaced.body.name).toBe('b'.repeat(100));
+    });
+
     it('is forbidden for employees', () =>
       http()
         .post('/api/employees')
@@ -236,6 +265,27 @@ describe('Departments & Employees (e2e)', () => {
         .send({ departmentId: null })
         .expect(200);
       expect(cleared.body.department).toBeNull();
+    });
+
+    it('trims and limits the name on patch too', async () => {
+      const patch = (name: string) =>
+        http()
+          .patch(`/api/employees/${createdId}`)
+          .set(auth(managerToken))
+          .send({ name });
+
+      const res = await patch('  Spaced   Out  ').expect(200);
+      expect(res.body.name).toBe('Spaced Out');
+
+      await patch('   ').expect(400);
+      await patch('a'.repeat(101)).expect(400);
+      const stored = await prisma.employee.findUniqueOrThrow({
+        where: { id: createdId },
+      });
+      expect(stored.name).toBe('Spaced Out');
+
+      const max = await patch('c'.repeat(100)).expect(200);
+      expect(max.body.name).toHaveLength(100);
     });
 
     it('cannot patch another team’s employee', async () => {
