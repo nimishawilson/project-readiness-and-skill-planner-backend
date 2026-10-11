@@ -493,4 +493,44 @@ describe('ProjectsService', () => {
       expect(projectAssignment.findMany.mock.calls[0][0].where.year).toBe(2022);
     });
   });
+  describe('default-year views (update / getProjectView)', () => {
+    const pastOnly = () =>
+      row({ years: [{ year: year - 3 }, { year: year - 2 }] });
+
+    it('update evaluates readiness for the latest mapped year when not mapped to the current one', async () => {
+      project.findUnique.mockResolvedValue({ createdById: 7, years: [] });
+      project.update.mockResolvedValue(pastOnly());
+      projectAssignment.findMany.mockResolvedValue([
+        assignment(10, 5, 'Asha'),
+        assignment(10, 6, 'Ravi'),
+      ]);
+      const view = await service.update(7, 10, { name: 'New' });
+      expect(projectAssignment.findMany.mock.calls[0][0].where.year).toBe(
+        year - 2,
+      );
+      expect(view.readinessStatus).toBe('READY');
+    });
+
+    it('update still uses the current year when the project is mapped to it', async () => {
+      project.findUnique.mockResolvedValue({ createdById: 7, years: [] });
+      project.update.mockResolvedValue(row());
+      await service.update(7, 10, { name: 'New' });
+      expect(projectAssignment.findMany.mock.calls[0][0].where.year).toBe(year);
+    });
+
+    it('getProjectView returns the shape with years, owner-checked', async () => {
+      project.findUnique.mockResolvedValue(
+        row({ years: [{ year }, { year: year + 1 }] }),
+      );
+      await expect(service.getProjectView(7, 10)).resolves.toMatchObject({
+        id: 10,
+        years: [year, year + 1],
+        readinessStatus: 'NOT_READY',
+      });
+      project.findUnique.mockResolvedValue(row({ createdById: 99 }));
+      await expect(service.getProjectView(7, 10)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
 });

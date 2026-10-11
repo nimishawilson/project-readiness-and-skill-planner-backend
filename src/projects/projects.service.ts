@@ -233,8 +233,18 @@ export class ProjectsService {
       },
       select: projectSelect,
     });
-    const [item] = await this.toItems([project], currentYear());
-    return this.toView(item.project, item.readiness);
+    const { readiness } = await this.readinessFor(project);
+    return this.toView(project, readiness);
+  }
+
+  /** The project shape, with readiness for its default year. */
+  async getProjectView(
+    managerId: number,
+    projectId: number,
+  ): Promise<ProjectViewDto> {
+    const project = await this.loadOwned(managerId, projectId);
+    const { readiness } = await this.readinessFor(project);
+    return this.toView(project, readiness);
   }
 
   async addRequirement(
