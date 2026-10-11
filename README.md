@@ -1,98 +1,157 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Skills & Project Readiness Portal — Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+REST API for the Skills & Project Readiness Portal. Managers maintain their team's skills and proficiency levels, assign learning goals, and create projects with skill requirements. The API reports whether each project is ready to start. Employees view their own skills, learning goals and projects, and advance their own goal progress.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+**Stack:** NestJS 11 · PostgreSQL · Prisma 7 · JWT auth · Swagger (OpenAPI)
 
-## Description
+The functional specification and the endpoint contract live in the workspace root, next to this folder:
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- `../spec.md` — what the product does
+- `../API_ENDPOINTS.md` — every endpoint, with request/response shapes, rules and error codes
 
-## Project setup
+All 10 phases of the contract are implemented.
+
+## Prerequisites
+
+- A current Node.js LTS (developed on Node 24) and npm
+- PostgreSQL, with an empty database for the app
+
+## Setup
 
 ```bash
-$ npm install
+# 1. Install dependencies
+npm install
+
+# 2. Create your env file and edit it (see "Environment variables")
+cp .env.example .env
+
+# 3. Generate the Prisma client (output goes to src/generated/prisma, which is git-ignored)
+npm run prisma:generate
+
+# 4. Create the tables
+npm run prisma:migrate
+
+# 5. Load the demo data
+npm run prisma:seed
 ```
 
-## Compile and run the project
+Run steps 3 and 4 again whenever you pull changes that touch `prisma/schema.prisma` or add a migration. Step 3 is also needed after every fresh checkout.
+
+Outside local development, apply existing migrations without creating new ones: `npx prisma migrate deploy`.
+
+## Environment variables
+
+Configure these in `.env`. The app refuses to start if a required one is missing.
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `DATABASE_URL` | yes | — | PostgreSQL connection string, e.g. `postgresql://USER:PASSWORD@localhost:5432/skills_portal?schema=public` |
+| `JWT_SECRET` | yes | — | Secret used to sign access tokens. Use a long random value. |
+| `JWT_EXPIRES_IN` | no | `1h` | Access-token lifetime, e.g. `1h`, `30m` |
+| `CORS_ORIGIN` | no | any origin | Comma-separated list of allowed browser origins, e.g. `http://localhost:4200`. Set it outside local development. |
+| `PORT` | no | `3000` | HTTP port |
+
+## Run
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm run start:dev    # watch mode
+npm run start        # no watch
+npm run build && npm run start:prod   # compiled build (dist/main.js)
 ```
 
-## Run tests
+| What | URL (default port) |
+|---|---|
+| API base path | `http://localhost:3000/api` |
+| Swagger UI | `http://localhost:3000/docs` |
+| OpenAPI JSON | `http://localhost:3000/docs-json` |
+| Health check (public) | `http://localhost:3000/api` |
+
+In Swagger UI, call `POST /api/auth/login`, copy the `accessToken`, click **Authorize** and paste it. Every other endpoint needs `Authorization: Bearer <token>`.
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+curl -s -X POST http://localhost:3000/api/auth/login \
+  -H 'content-type: application/json' \
+  -d '{"email":"manager@example.com","password":"password123"}'
 ```
 
-## Deployment
+## Demo data
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+`npm run prisma:seed` is idempotent: running it again does not duplicate rows. (The demo goal is only created while Asha has no goals, and the demo project only while the database has no projects at all.) All seeded users share the password `password123`. **Demo credentials only, never seed a production database.**
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+| User | Email | Role | Notes |
+|---|---|---|---|
+| Maya Manager | `manager@example.com` | `MANAGER` | Manages Asha and Ravi; owns the demo project |
+| Asha Employee | `asha@example.com` | `EMPLOYEE` | Angular (Beginner), TypeScript (Expert), goal "Learn NestJS" |
+| Ravi Employee | `ravi@example.com` | `EMPLOYEE` | Java (Intermediate) |
+
+It also creates the department `Engineering`, the skills `Angular`, `Java`, `TypeScript` and `SQL`, and the project **Portal Rebuild** (Angular ≥ Beginner × 2, Java ≥ Intermediate × 1). Asha and Ravi are assigned to it for the current year, so it starts as `NOT_READY` (one more qualified Angular person needed).
+
+## API overview
+
+Base path `/api`. Everything requires a JWT except `POST /auth/login`. The role comes from the token; managers act on their own team only.
+
+| Area | Endpoints | Who |
+|---|---|---|
+| Auth | `POST /auth/login`, `GET /auth/me` | public / any |
+| Departments | `GET /departments` | any |
+| Employees | `GET/POST /employees`, `GET/PATCH /employees/:id` | manager |
+| Skill catalog | `GET /skills` (any), `POST/PATCH/DELETE /skills…` | manager |
+| Employee skills & matrix | `/employees/:id/skills…`, `GET /skills-matrix` | manager |
+| Learning goals | `/employees/:id/learning-goals`, `/learning-goals/…` (update, approve, pending approval, map year) | manager |
+| Projects & requirements | `/projects…`, `/projects/:id/requirements…` | manager (owner) |
+| Assignments | `/projects/:id/assignments…`, `GET /employees/:id/projects` | manager (owner / team) |
+| Readiness | `GET /projects/:id/readiness` | manager (owner) |
+| Year mapping | `POST /projects/:id/map-year`, `GET /projects/:id/years` | manager (owner) |
+| Employee self-service | `GET /me/profile`, `/me/skills`, `/me/learning-goals`, `PATCH /me/learning-goals/:id/progress`, `GET /me/projects/current`, `/me/projects/past` | employee |
+
+See `../API_ENDPOINTS.md` for the full contract.
+
+## Business rules worth knowing
+
+- **Roles and teams.** A manager's team is the employees whose `managerId` is theirs. Managers can only work on their own team (`403` otherwise). Only managers create employees; there is no self-registration.
+- **Proficiency levels** are ordered Beginner < Intermediate < Expert. An employee qualifies for a requirement when their level is at or above the required one.
+- **Learning goals.** At most 3 per employee per year. Progress (`NOT_STARTED` → `IN_PROGRESS` → `COMPLETED`) is separate from the manager's approval. An employee completing a goal makes it available for approval; it does not approve it. Approved goals are locked. Only a manager can map a goal to another year.
+- **Projects are private to the manager who created them.** Other managers get `403`.
+- **Readiness.** For each requirement, `additionalNeeded = max(0, required − qualifiedAssigned)`. A project is `READY` only when every requirement is met (and a project with no requirements is `READY`). It is computed on every read and never stored. Projects can be created and managed regardless of readiness.
+- **Years.** Projects and goals belong to the year of their creation date. Mapping a project to a new year (current year or later, and after its latest mapped year) copies its latest year's assignments forward. Assignments can only be changed for the current year; earlier years are read-only history. Employees see current-year projects as active and earlier years as past projects.
+
+## Tests
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm test             # unit tests (no database needed)
+npm run test:cov     # unit tests with coverage
+npm run test:e2e     # end-to-end tests
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+The e2e tests run against the **real database** from `DATABASE_URL`, so it must be migrated and seeded first (they log in as the seeded users). They create tagged test rows and delete them afterwards. Run them against a local development database, never against shared or production data.
 
-## Resources
+## Project layout
 
-Check out a few resources that may come in handy when working with NestJS:
+```
+prisma/                 schema.prisma, migrations, seed.ts
+src/
+  auth/                 login, JWT strategy, global guards, team-access check
+  departments/ employees/ skills/
+  employee-skills/      employee skill mapping and the skills matrix
+  learning-goals/
+  projects/             projects, requirements, readiness, year mapping
+  project-assignments/  assigning employees, per-employee project lists
+  common/               shared decorators, pagination, mappers, utils
+  generated/prisma/     generated Prisma client (git-ignored)
+test/                   e2e specs and helpers
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## Other scripts
 
-## Support
+| Script | Purpose |
+|---|---|
+| `npm run lint` | ESLint (auto-fixes) |
+| `npm run format` | Prettier |
+| `npm run prisma:studio` | Browse the database in Prisma Studio |
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## Troubleshooting
 
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- **`Missing required env vars: …`** — set `DATABASE_URL` and `JWT_SECRET` in `.env`.
+- **`Cannot find module … generated/prisma`** — run `npm run prisma:generate`.
+- **e2e tests fail on login** — the database isn't seeded; run `npm run prisma:seed`.
+- **`401` on every request** — the token is missing, expired (`JWT_EXPIRES_IN`) or was signed with a different `JWT_SECRET`.
