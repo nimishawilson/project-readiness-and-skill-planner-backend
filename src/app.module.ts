@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { DepartmentsModule } from './departments/departments.module';
+import { EmployeeSkillsModule } from './employee-skills/employee-skills.module';
 import { EmployeesModule } from './employees/employees.module';
 import { SkillsModule } from './skills/skills.module';
 import { validateEnv } from './config/env.validation';
@@ -16,6 +17,7 @@ import { PrismaModule } from './prisma/prisma.module';
     AuthModule,
     DepartmentsModule,
     EmployeesModule,
+    EmployeeSkillsModule,
     SkillsModule,
   ],
   controllers: [AppController],
