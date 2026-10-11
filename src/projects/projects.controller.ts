@@ -33,6 +33,7 @@ import {
   ProjectListItemDto,
   ProjectViewDto,
 } from './dto/project-view.dto';
+import { ProjectReadinessDto } from './dto/project-readiness.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectsService } from './projects.service';
 
@@ -93,6 +94,24 @@ export class ProjectsController {
     @Query() query: ProjectYearQueryDto,
   ): Promise<ProjectDetailDto> {
     return this.projects.get(user.id, id, query.year);
+  }
+
+  @Get(':id/readiness')
+  @ApiOperation({
+    summary:
+      'Project readiness: qualified headcount and additional people needed per requirement',
+  })
+  @ApiOkResponse({ type: ProjectReadinessDto })
+  @ApiBadRequestResponse({ description: 'Invalid year' })
+  @ApiNotFoundResponse({
+    description: 'Project not found, or not mapped to the requested year',
+  })
+  readiness(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Query() query: ProjectYearQueryDto,
+  ): Promise<ProjectReadinessDto> {
+    return this.projects.getReadiness(user.id, id, query.year);
   }
 
   @Patch(':id')

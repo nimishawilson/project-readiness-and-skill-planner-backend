@@ -21,6 +21,7 @@ import {
   ProjectViewDto,
   RequirementDto,
 } from './dto/project-view.dto';
+import { ProjectReadinessDto } from './dto/project-readiness.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { UpdateRequirementDto } from './dto/update-requirement.dto';
 import { resolveProjectYear } from './project-year';
@@ -183,22 +184,34 @@ export class ProjectsService {
     requestedYear?: number,
   ): Promise<ProjectDetailDto> {
     const project = await this.loadOwned(managerId, projectId);
-    const year = resolveProjectYear(
-      project.years.map((y) => y.year),
+    const { year, assignees, readiness } = await this.readinessFor(
+      project,
       requestedYear,
     );
-    const assignees = (await this.loadAssignees([projectId], year)).get(
-      projectId,
-    );
-    const readiness = computeReadiness(project.requirements, assignees ?? []);
     return {
       ...this.toView(project, readiness),
       year,
-      assignedEmployees: (assignees ?? []).map((a) => ({
+      assignedEmployees: assignees.map((a) => ({
         employeeId: a.employeeId,
         name: a.name,
         skills: a.skills.map((s) => ({ skill: s.skill.name, level: s.level })),
       })),
+      requirements: readiness.requirements,
+    };
+  }
+
+  /** Readiness is computed on read, never stored. */
+  async getReadiness(
+    managerId: number,
+    projectId: number,
+    requestedYear?: number,
+  ): Promise<ProjectReadinessDto> {
+    const project = await this.loadOwned(managerId, projectId);
+    const { year, readiness } = await this.readinessFor(project, requestedYear);
+    return {
+      projectId,
+      year,
+      status: readiness.status,
       requirements: readiness.requirements,
     };
   }
@@ -287,6 +300,21 @@ export class ProjectsService {
       where: { id: requirementId, projectId },
     });
     if (count === 0) throw this.requirementNotFound();
+  }
+
+  /** Resolves the year, loads its assignees and evaluates the requirements. */
+  private async readinessFor(project: ProjectRow, requestedYear?: number) {
+    const year = resolveProjectYear(
+      project.years.map((y) => y.year),
+      requestedYear,
+    );
+    const assignees =
+      (await this.loadAssignees([project.id], year)).get(project.id) ?? [];
+    return {
+      year,
+      assignees,
+      readiness: computeReadiness(project.requirements, assignees),
+    };
   }
 
   private async loadOwned(managerId: number, projectId: number) {

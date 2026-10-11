@@ -405,4 +405,92 @@ describe('ProjectsService', () => {
       );
     });
   });
+  describe('getReadiness', () => {
+    it('returns the contract shape with remaining headcount', async () => {
+      project.findUnique.mockResolvedValue(row());
+      projectAssignment.findMany.mockResolvedValue([assignment(10, 5, 'Asha')]);
+      await expect(service.getReadiness(7, 10)).resolves.toEqual({
+        projectId: 10,
+        year,
+        status: 'NOT_READY',
+        requirements: [
+          {
+            requirementId: 1,
+            skillId: 1,
+            skill: 'Angular',
+            minLevel: 'BEGINNER',
+            required: 2,
+            qualifiedAssigned: 1,
+            additionalNeeded: 1,
+          },
+        ],
+      });
+      expect(projectAssignment.findMany.mock.calls[0][0].where).toEqual({
+        projectId: { in: [10] },
+        year,
+      });
+    });
+
+    it('is READY once the requirement is met', async () => {
+      project.findUnique.mockResolvedValue(row());
+      projectAssignment.findMany.mockResolvedValue([
+        assignment(10, 5, 'Asha'),
+        assignment(10, 6, 'Ravi'),
+      ]);
+      const res = await service.getReadiness(7, 10);
+      expect(res.status).toBe('READY');
+      expect(res.requirements[0].additionalNeeded).toBe(0);
+    });
+
+    it('is READY with an empty list when there are no requirements', async () => {
+      project.findUnique.mockResolvedValue(row({ requirements: [] }));
+      await expect(service.getReadiness(7, 10)).resolves.toMatchObject({
+        status: 'READY',
+        requirements: [],
+      });
+    });
+
+    it('is NOT_READY with nobody assigned', async () => {
+      project.findUnique.mockResolvedValue(row());
+      const res = await service.getReadiness(7, 10);
+      expect(res.status).toBe('NOT_READY');
+      expect(res.requirements[0]).toMatchObject({
+        qualifiedAssigned: 0,
+        additionalNeeded: 2,
+      });
+    });
+
+    it('404s a missing project and 403s a non-owner before reading assignments', async () => {
+      project.findUnique.mockResolvedValueOnce(null);
+      await expect(service.getReadiness(7, 10)).rejects.toThrow(
+        NotFoundException,
+      );
+      project.findUnique.mockResolvedValueOnce(row({ createdById: 99 }));
+      await expect(service.getReadiness(7, 10)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(projectAssignment.findMany).not.toHaveBeenCalled();
+    });
+
+    it('evaluates an explicit mapped past year, 404s an unmapped one', async () => {
+      project.findUnique.mockResolvedValue(
+        row({ years: [{ year: 2020 }, { year }] }),
+      );
+      const res = await service.getReadiness(7, 10, 2020);
+      expect(res.year).toBe(2020);
+      expect(projectAssignment.findMany.mock.calls[0][0].where.year).toBe(2020);
+      await expect(service.getReadiness(7, 10, 1999)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('falls back to the latest mapped year when not mapped to the current one', async () => {
+      project.findUnique.mockResolvedValue(
+        row({ years: [{ year: 2020 }, { year: 2022 }] }),
+      );
+      const res = await service.getReadiness(7, 10);
+      expect(res.year).toBe(2022);
+      expect(projectAssignment.findMany.mock.calls[0][0].where.year).toBe(2022);
+    });
+  });
 });
