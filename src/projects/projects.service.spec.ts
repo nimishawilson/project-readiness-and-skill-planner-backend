@@ -78,15 +78,20 @@ describe('ProjectsService', () => {
       await expect(service.assertOwned(7, 10)).rejects.toThrow(
         NotFoundException,
       );
-      project.findUnique.mockResolvedValueOnce({ createdById: 99 });
+      project.findUnique.mockResolvedValueOnce({ createdById: 99, years: [] });
       await expect(service.assertOwned(7, 10)).rejects.toThrow(
         ForbiddenException,
       );
     });
 
     it('passes for the owner', async () => {
-      project.findUnique.mockResolvedValue({ createdById: 7 });
-      await expect(service.assertOwned(7, 10)).resolves.toBeUndefined();
+      project.findUnique.mockResolvedValue({
+        createdById: 7,
+        years: [{ year: 2025 }, { year }],
+      });
+      await expect(service.assertOwned(7, 10)).resolves.toEqual({
+        years: [2025, year],
+      });
     });
   });
 
@@ -279,7 +284,7 @@ describe('ProjectsService', () => {
     });
 
     it('403s a non-owner without writing', async () => {
-      project.findUnique.mockResolvedValue({ createdById: 99 });
+      project.findUnique.mockResolvedValue({ createdById: 99, years: [] });
       await expect(service.update(7, 10, { name: 'x' })).rejects.toThrow(
         ForbiddenException,
       );
@@ -287,7 +292,7 @@ describe('ProjectsService', () => {
     });
 
     it('updates only the provided fields', async () => {
-      project.findUnique.mockResolvedValue({ createdById: 7 });
+      project.findUnique.mockResolvedValue({ createdById: 7, years: [] });
       project.update.mockResolvedValue(row({ name: 'New' }));
       const view = await service.update(7, 10, { name: 'New' });
       expect(project.update.mock.calls[0][0].data).toEqual({ name: 'New' });
@@ -297,7 +302,7 @@ describe('ProjectsService', () => {
 
   describe('requirements', () => {
     beforeEach(() => {
-      project.findUnique.mockResolvedValue({ createdById: 7 });
+      project.findUnique.mockResolvedValue({ createdById: 7, years: [] });
     });
 
     it('adds a requirement', async () => {
@@ -332,7 +337,7 @@ describe('ProjectsService', () => {
     });
 
     it('does not write when the caller does not own the project', async () => {
-      project.findUnique.mockResolvedValue({ createdById: 99 });
+      project.findUnique.mockResolvedValue({ createdById: 99, years: [] });
       await expect(
         service.addRequirement(7, 10, {
           skillId: 1,

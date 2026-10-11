@@ -23,6 +23,7 @@ import {
 } from './dto/project-view.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { UpdateRequirementDto } from './dto/update-requirement.dto';
+import { resolveProjectYear } from './project-year';
 import { computeReadiness, Readiness } from './readiness';
 
 const requirementSelect = {
@@ -47,7 +48,7 @@ type ProjectRow = Prisma.ProjectGetPayload<{ select: typeof projectSelect }>;
 type RequirementRow = Prisma.ProjectRequirementGetPayload<{
   select: typeof requirementSelect;
 }>;
-interface Assignee {
+export interface Assignee {
   employeeId: number;
   name: string;
   skills: {
@@ -80,14 +81,22 @@ export class ProjectsService {
 
   /**
    * Projects are private to their creator: 404 if missing, 403 if owned by
-   * another manager. Use before any project-scoped read or write.
+   * another manager. Use before any project-scoped read or write. Returns
+   * the years the project is mapped to (ascending).
    */
-  async assertOwned(managerId: number, projectId: number): Promise<void> {
+  async assertOwned(
+    managerId: number,
+    projectId: number,
+  ): Promise<{ years: number[] }> {
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
-      select: { createdById: true },
+      select: {
+        createdById: true,
+        years: { select: { year: true }, orderBy: { year: 'asc' } },
+      },
     });
-    this.checkOwner(project, managerId);
+    const owned = this.checkOwner(project, managerId);
+    return { years: owned.years.map((y) => y.year) };
   }
 
   async create(
@@ -174,7 +183,7 @@ export class ProjectsService {
     requestedYear?: number,
   ): Promise<ProjectDetailDto> {
     const project = await this.loadOwned(managerId, projectId);
-    const year = this.resolveYear(
+    const year = resolveProjectYear(
       project.years.map((y) => y.year),
       requestedYear,
     );
@@ -299,21 +308,8 @@ export class ProjectsService {
     return project;
   }
 
-  /** Explicit year must be mapped (404); otherwise current year, else latest. */
-  private resolveYear(years: number[], requested?: number): number {
-    if (requested !== undefined) {
-      if (!years.includes(requested)) {
-        throw new NotFoundException(`Project is not mapped to ${requested}`);
-      }
-      return requested;
-    }
-    const current = currentYear();
-    if (years.includes(current) || years.length === 0) return current;
-    return years[years.length - 1];
-  }
-
   /** Assignees (with their skill levels) per project for one year. */
-  private async loadAssignees(projectIds: number[], year: number) {
+  async loadAssignees(projectIds: number[], year: number) {
     const rows = await this.prisma.projectAssignment.findMany({
       where: { projectId: { in: projectIds }, year },
       select: assigneeSelect,
