@@ -4,12 +4,13 @@ REST API for the Skills & Project Readiness Portal. Managers maintain their team
 
 **Stack:** NestJS 11 · PostgreSQL · Prisma 7 · JWT auth · Swagger (OpenAPI)
 
-The functional specification and the endpoint contract live in the workspace root, next to this folder:
+## Live demo
 
-- `../spec.md` — what the product does
-- `../API_ENDPOINTS.md` — every endpoint, with request/response shapes, rules and error codes
+- API base URL: https://project-readiness-and-skill-planner.onrender.com/api
+- Swagger docs: https://project-readiness-and-skill-planner.onrender.com/docs
 
-All 10 phases of the contract are implemented.
+Hosted on Render's free tier, so the first request after idle can take
+30–60 seconds while the server wakes up.
 
 ## Prerequisites
 
